@@ -1,0 +1,287 @@
+<html>
+<head>
+
+<script language="javascript">
+var hrSelect="<select id='hrSelect'>";
+for(var i=0; i<24; i++)
+	hrSelect += "<option value = " + i.toString() + ">" + i.toString() + "</option>";
+hrSelect += "</select>";
+
+var minSelect="<select id='minSelect'>";
+for(var i=0; i<60; i+=5)
+	minSelect += "<option value = " + i.toString() + ">" + i.toString() + "</option>";
+minSelect += "</select>";
+
+function addRow(tableID) {
+
+    var table = document.getElementById(tableID);
+
+    var rowCount = table.rows.length;
+    var row = table.insertRow(rowCount);
+
+    var cell1 = row.insertCell(0);
+    var element1 = document.createElement("input");
+    element1.type = "checkbox";
+    element1.name="chkbox[]";
+	cell1.appendChild(element1);
+
+
+	var cell3 = row.insertCell(1);
+		
+	var element2 = document.createElement("input");
+	element2.type = "text";
+	element2.name = "inptName";
+	cell3.appendChild(element2);
+
+	var cell4 = row.insertCell(2);
+	cell4.innerHTML += hrSelect + ":" + minSelect;
+
+	row.insertCell(3);
+	row.insertCell(4);
+	row.insertCell(5);
+	row.insertCell(6);
+    }
+
+function deleteRow(tableID) {
+    try {
+    var table = document.getElementById(tableID);
+var rowCount = table.rows.length;
+
+for(var i=0; i<rowCount; i++) {
+    var row = table.rows[i];
+    var chkbox = row.cells[0].childNodes[0];
+    if(null != chkbox && true == chkbox.checked) {
+            table.deleteRow(i);
+            rowCount--;
+            i--;
+        }
+    }
+    }catch(e) {
+        alert(e);
+    }
+}
+
+function startSim() {
+	var xmlhttp;
+	var txt,x,i,el,j;
+	var routes = []; // each" [code, src, dest, fuel, fuelpermin, time(in min)]
+	var airports = []; // each: [code, name, inRunway, outRunway, inRunwayQueue, outRunwayQueue, inRunwayNext, inRunwayLast, outRunwayNext, outRunwayLast, inRunwayTime, outRunwayTime]
+	var flights = []; // [route, departTime, takeOffTime, arriveTime, landTime, state, waitTime1, waitTime2]
+	var queue = [];
+	// states: 0 not ready 1 ready 2 departing 3 flying 4 ready to land 5 landing 6 landed
+	var mintime = 10000000;
+	var notlanded = 0, time;
+	
+	if (window.XMLHttpRequest) {// code for IE7+, Firefox, Chrome, Opera, Safari
+		xmlhttp=new XMLHttpRequest();
+	}
+	else {// code for IE6, IE5
+	xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+	}
+	xmlhttp.onreadystatechange=function() {
+		el = document.getElementById("errors").style.display = "none";
+		if (xmlhttp.readyState==4 && xmlhttp.status==200) {
+			xmlDoc=xmlhttp.responseXML;
+			txt="";
+			x = xmlDoc.getElementsByTagName("error");
+			if(x.length > 0) {
+				el = document.getElementById("errors").style.display = "block";
+				txt = "";
+				for(i=0; i<x.length; i++)
+					txt += x[i].childNodes[0].nodeValue + "<br>";
+				el.innerHTML = txt;
+			}
+			else {
+				x = xmlDoc.getElementsByTagName("route");
+				for(i=0; i<x.length; i++)
+					routes[i] = [x[i].childNodes[0].nodeValue, x[i].childNodes[1].nodeValue, x[i].childNodes[2].nodeValue, parseDouble(x[i].childNodes[3].nodeValue), parseDouble(x[i].childNodes[4].nodeValue), parseInt(x[i].childNodes[5].nodeValue), 0];
+				x = xmlDoc.getElementsByTagName("airport");
+				for(i=0; i<x.length; i++)
+					airports[i] = [x[i].childNodes[0].nodeValue, x[i].childNodes[1].nodeValue, -1, -1, [], [], 0, -1, 0, -1, 0, 0];
+					
+				for(i=0; i<routes.length; i++) 
+					for(j=0; j<airports.length; j++) {
+						if(routes[i][1] == airports[j])
+							routes[i][1] = j;
+						if(routes[i][2] == airports[j])
+							routes[i][2] = j;
+					}
+					
+				for(i=1; i<table.rows.length; i++ ) {
+					var row = table.rows[i];
+					var rtcode = row.cells[1].getElementById('inptName').value;
+					var rtid;
+					for(j=0; j<routes.length; j++)
+						if(rtcode == routes[j][0])
+							rtid = j;
+					var dptime = 60*row.cells[2].getElementById('hrSelect').value + row.cells[2].getElementById('minSelect').value;
+					if(mintime > dptime)
+						mintime = dptime;
+					flights[i-1] = [rtid, dptime, -1, -1, -1, 0, 0, 0];
+					notlanded++;
+				}
+				
+				
+				// start simulation
+				time = mintime;
+				do {
+					// line to take off
+					// line to land
+					// leave inrunway
+					// leave outrunway
+					for(i=0; i<flights.length; i++) {
+						var route = routes[flights[i][0]];
+						var airport = airports[route[1]];
+						if(flights[i][1] == time) {
+							if(airport[2] == -1) {
+								airport[2] = flights[i][0];
+								airport[10] = time + 11;
+								flights[i][5] = 2;
+							}
+							else {
+								flights[i][5] = 1;
+								airport[7]++;
+								airport[5][airport[7]] = flights[i][0];
+							}
+						}
+						else if(flights[i][3] == time) {
+							airport = airports[route[2]];
+							if(airport[3] == -1) {
+								airport[3] = flights[i][0];
+								airport[11] = time + 11;
+								flights[i][5] = 5;
+							}
+							else {
+								flights[i][4] = 4;
+								airport[9]++;
+								airport[6][airport[9]] = flights[i][0];
+							}
+						}
+					}
+					for(i=0; i<airports.length; i++) {
+						var flight, fid;
+						if(airport[10] == time) {
+							flight = flights[airports[i][2]];
+							airports[i][2]= -1;
+							flight[2] = time;
+							flight[3] = time + routes[flight[0]][5];
+							flight[5] = 2;
+							
+							if(airports[i][7] >= airports[i][6]) {
+								fid = airports[i][4][airports[i][6]];
+								flight = flights[fid];
+								airports[i][6]++;
+								
+								flight[6] = time - flight[1];
+								flight[4] = 2;
+								airports[i][2] = fid;
+							}
+						}
+						if(airport[11] == time) {
+							flight = flights[airports[i][3]];
+							airports[i][3]= -1;
+							flight[4] = time;
+							flight[5] = 6;
+							notlanded--;
+							
+							if(airports[i][9] >= airports[i][8]) {
+								fid = airports[i][5][airports[i][8]];
+								flight = flights[fid];
+								airports[i][8]++;
+								
+								flight[7] = time - flight[3];
+								flight[5] = 5;
+								airports[i][3] = fid;
+							}
+						}
+					}
+					
+					time++;
+				} while(notlanded > 0);
+				
+				for(int i=1; i<table.rows.length; i++) {
+					var cells = table.rows[i].cells;
+					int td = 0, th = 0, tm = flights[i-1][2]; 
+					th = tm / 60;
+					tm = tm % 60;
+					if(th > 23) {
+						td = th / 24;
+						th = th % 24;
+					}
+					cells[4].innerText = "";
+					if(td > 0)
+						cells[4].innerText += td.toString() + "d ";
+					cells[4] += th.toString() + ":" + tm.toString();
+					
+					tm = flights[i-1][4];
+					th = tm / 60;
+					tm = tm % 60;
+					if(th > 23) {
+						td = th / 24;
+						th = th % 24;
+					}
+					cells[5].innerText = "";
+					if(td > 0)
+						cells[5].innerText += td.toString() + "d ";
+					cells[5] += th.toString() + ":" + tm.toString();
+					
+					tm = flights[i-1][4] - flights[i-1][1];
+					th = tm / 60;
+					tm = tm % 60;
+					if(th > 23) {
+						td = th / 24;
+						th = th % 24;
+					}
+					cells[5].innerText = "";
+					if(td > 0)
+						cells[5].innerText += td.toString() + "d ";
+					cells[5] += th.toString() + ":" + tm.toString();
+					
+					var route = routes[fligths[i-1][0]];
+					var fuel = route[3] + route[4]*flights[i-1][7];
+					cells[6] = fuel.toString();
+				}
+			}
+
+		}
+
+		}
+	}
+	
+	var table = document.detElementById('simTable');
+	var str = "str=";
+	for(i=1; i<table.rows.length; i++) {
+		var val = table.rows[i].cells[1].getElementById('inptName').value;
+		str += val + "|";
+	}
+	
+	xmlhttp.open("POST","getxml.php",true);
+	xmlhttp.send(str);
+}
+</script>
+
+</head>
+<body>
+
+<input type="button" value="Add Row" onclick="addRow('simTable')" />
+ 
+<input type="button" value="Delete Row" onclick="deleteRow('simTable')" />
+
+<table id="simTable" border = 1>
+<tr>
+<td>*</td>
+<td>Route code</td>
+<td>Planned depart time</td>
+<td>Take off time</td>
+<td>Landing time</td>
+<td>Gate to gate time</td>
+<td>Fuel</td></tr>
+
+</table>
+
+<input type="button" value="Start" onclick="startSim()" />
+
+<div id="errors" style = "display:none"></div>
+
+</body>
+</html>
