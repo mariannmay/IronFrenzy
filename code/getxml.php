@@ -9,7 +9,7 @@ $count = 0;
 
 $con = mysql_connect("localhost", "test", "ieigfyxbr");
 if(!$con)
-	echo "<errors><error.Cannot connect to database!</error></errors>";
+	echo "<error><message>Cannot connect to database!</message></error>";
 mysql_select_db("flighttest", $con);
 
 foreach($array as $code) {
