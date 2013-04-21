@@ -199,9 +199,9 @@ function startSim() {
 					time++;
 				} while(notlanded > 0);
 				
-				for(int i=1; i<table.rows.length; i++) {
+				for(i=1; i<table.rows.length; i++) {
 					var cells = table.rows[i].cells;
-					int td = 0, th = 0, tm = flights[i-1][2]; 
+					var td = 0, th = 0, tm = flights[i-1][2]; 
 					th = tm / 60;
 					tm = tm % 60;
 					if(th > 23) {
@@ -245,7 +245,6 @@ function startSim() {
 
 		}
 
-		}
 	}
 	
 	var table = document.detElementById('simTable');
